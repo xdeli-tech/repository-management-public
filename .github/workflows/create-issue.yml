@@ -1,4 +1,4 @@
-name: Create Issue from CURL with Repository
+name: Create Issue
 
 on:
   workflow_dispatch:
