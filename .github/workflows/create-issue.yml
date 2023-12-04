@@ -23,14 +23,12 @@ jobs:
       - name: Create Issue
         uses: octokit/request-action@v2.x
         with:
-          route: POST /repos/:org/:repo/issues
-          org: xdeli-tech
-          repo: ${{ github.event.inputs.repository }}
-          title: ${{ github.event.inputs.title }}
-          body: ${{ github.event.inputs.body }}
-          assignees: ${{ github.event.inputs.assignee }}
+          route: POST /repos/xdeli-tech/${{ github.event.inputs.repository }}/issues
           mediaType: |
             previews:
               - symmetra
         env:
           GITHUB_TOKEN: ${{ secrets.XDELI_BOT_TOKEN }}
+          ISSUE_TITLE: ${{ github.event.inputs.title }}
+          ISSUE_BODY: ${{ github.event.inputs.body }}
+          ISSUE_ASSIGNEES: ${{ github.event.inputs.assignee }}
