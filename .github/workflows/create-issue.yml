@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: Create Issue
         run: |
-          curl -X POST \
+          curl -f -X POST \
             -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             -d '{"title":"${{ github.event.inputs.title }}","body":"${{ github.event.inputs.body }}","assignees":["${{ github.event.inputs.assignee }}"]}' \
