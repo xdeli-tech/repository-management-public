@@ -21,13 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Create Issue
-        uses: octokit/request-action@v2.x
-        with:
-          route: POST /repos/xdeli-tech/${{ github.event.inputs.repository }}/issues
-          title: ${{ github.event.inputs.title }}
-          body: ${{ github.event.inputs.body }}
-          assignees: ${{ github.event.inputs.assignee }}
-          mediaType: |
-            previews:
-              - symmetra
-          GITHUB_TOKEN: ${{ secrets.XDELI_BOT_TOKEN }}
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d '{"title":"${{ github.event.inputs.title }}","body":"${{ github.event.inputs.body }}","assignees":["${{ github.event.inputs.assignee }}"]}' \
+            https://api.github.com/repos/xdeli-tech/${{ github.event.inputs.repository }}/issues
