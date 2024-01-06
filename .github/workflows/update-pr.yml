@@ -20,22 +20,25 @@ jobs:
           AUTHOR_LOGIN=$(git show -s --format='%an <%ae>' $FIRST_COMMIT_SHA)
           echo "::set-output name=author_login::$AUTHOR_LOGIN"
 
-      - name: print Unassign all assignees
+      - name: Print and Unassign all assignees
         run: |
-          curl -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
-          "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/assignees"
-          curl -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
-          "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/assignees" | jq -r '.[] 
-      - name: Unassign all assignees
-        run: |
-          ASSIGNEES=$(curl -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
-          "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/assignees" | jq -r '.[] | .login')
-          for assignee in $ASSIGNEES; do
-            curl -X DELETE -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/assignees" \
-            -d "{\"assignees\": [\"$assignee\"]}"
-          done
+          echo "Fetching current assignees..."
+          ASSIGNEES_JSON=$(curl -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/assignees")
+          echo "Current Assignees: $ASSIGNEES_JSON"
 
+          ASSIGNEES=$(echo "$ASSIGNEES_JSON" | jq -r '.[].login')
+          echo "Assignee Logins: $ASSIGNEES"
+
+          for assignee in $ASSIGNEES; do
+            echo "Unassigning $assignee..."
+            UNASSIGN_RESULT=$(curl -X DELETE -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/assignees" \
+            -d "{\"assignees\": [\"$assignee\"]}")
+            echo "Unassign Result for $assignee: $UNASSIGN_RESULT"
+          done
+  
+  
       - name: Assign First Commit Author as Assignee
         run: |
           curl -X POST -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
