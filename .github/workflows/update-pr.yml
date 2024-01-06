@@ -11,12 +11,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Assign PR Author
+      - name: Assign PR Author if Changes Requested
         if: github.event.review.state == 'changes_requested'
-        uses: peter-evans/create-or-update-comment@v1
+        uses: actions/github-script@v5
         with:
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            @${{ github.event.pull_request.user.login }} への変更リクエストがあります。
-          assignees: |
-            ${{ github.event.pull_request.user.login }}
+          script: |
+            github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              assignees: [context.payload.pull_request.user.login]
+            });
