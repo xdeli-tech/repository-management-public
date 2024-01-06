@@ -1,17 +1,25 @@
-name: Assign Author on Change Request
+name: Assign First Committer on Change Request
 
 on:
   pull_request_review:
     types: [submitted]
 
 jobs:
-  assign-author:
+  assign-first-committer:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Assign PR Author if Changes Requested
+      - name: Get the first committer
+        if: github.event.review.state == 'changes_requested'
+        id: get-first-committer
+        run: |
+          first_committer=$(git log --format='%an <%ae>' | tail -1)
+          echo "First committer is $first_committer"
+          echo "::set-output name=first_committer::$first_committer"
+
+      - name: Assign First Committer if Changes Requested
         if: github.event.review.state == 'changes_requested'
         uses: actions/github-script@v5
         with:
@@ -21,5 +29,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              assignees: [context.payload.pull_request.user.login]
+              assignees: [${{ steps.get-first-committer.outputs.first_committer }}]
             });
