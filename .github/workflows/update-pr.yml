@@ -1,33 +1,33 @@
-name: Assign First Committer on Change Request
+name: Assign PR Author on Change Request
 
 on:
   pull_request_review:
     types: [submitted]
 
 jobs:
-  assign-first-committer:
+  assign-author:
+    if: github.event.review.state == 'changes_requested'
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Get the first committer
-        if: github.event.review.state == 'changes_requested'
-        id: get-first-committer
+      - name: Get First Commit Author
+        id: get-author
         run: |
-          first_committer=$(git log --format='%an <%ae>' | tail -1)
-          echo "First committer is $first_committer"
-          echo "::set-output name=first_committer::$first_committer"
+          FIRST_COMMIT_SHA=$(git rev-list --max-parents=0 HEAD)
+          AUTHOR_LOGIN=$(git show -s --format='%an <%ae>' $FIRST_COMMIT_SHA)
+          echo "::set-output name=author_login::$AUTHOR_LOGIN"
 
-      - name: Assign First Committer if Changes Requested
-        if: github.event.review.state == 'changes_requested'
-        uses: actions/github-script@v5
-        with:
-          github-token: ${{ secrets.XDELI_BOT_TOKEN }}
-          script: |
-            github.rest.issues.addAssignees({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              assignees: [${{ steps.get-first-committer.outputs.first_committer }}]
-            });
+      - name: Unassign all assignees
+        run: |
+          curl -X DELETE -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/assignees" \
+          -d '{"assignees": ${{ github.event.pull_request.assignees.*.login }}}'
+
+      - name: Assign First Commit Author as Assignee
+        run: |
+          curl -X POST -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/assignees" \
+          -d '{"assignees": ["${{ steps.get-author.outputs.author_login }}"]}'
