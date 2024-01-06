@@ -20,6 +20,12 @@ jobs:
           AUTHOR_LOGIN=$(git show -s --format='%an <%ae>' $FIRST_COMMIT_SHA)
           echo "::set-output name=author_login::$AUTHOR_LOGIN"
 
+      - name: print Unassign all assignees
+        run: |
+          curl -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/assignees"
+          curl -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/assignees" | jq -r '.[] 
       - name: Unassign all assignees
         run: |
           ASSIGNEES=$(curl -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
