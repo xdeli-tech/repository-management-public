@@ -22,6 +22,37 @@ jobs:
 
       - name: Print and Unassign all assignees
         run: |
+          REPO="${{ github.repository }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          TOKEN="${{ secrets.XDELI_BOT_TOKEN }}"
+
+          echo "Repository: $REPO"
+          echo "Pull Request Number: $PR_NUMBER"
+          echo "Using Token: $TOKEN"
+
+          ASSIGN_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/assignees"
+          echo "Assignees URL: $ASSIGN_URL"
+
+          echo "Fetching current assignees..."
+          ASSIGNEES_JSON=$(curl -H "Authorization: token $TOKEN" "$ASSIGN_URL")
+          echo "Current Assignees Response: $ASSIGNEES_JSON"
+
+          if [[ $ASSIGNEES_JSON == *"Not Found"* ]]; then
+            echo "Error: No assignees found or issue not found."
+          else
+            ASSIGNEES=$(echo "$ASSIGNEES_JSON" | jq -r '.[].login')
+            echo "Assignee Logins: $ASSIGNEES"
+
+            for assignee in $ASSIGNEES; do
+              echo "Unassigning $assignee from $PR_NUMBER..."
+              UNASSIGN_RESULT=$(curl -X DELETE -H "Authorization: token $TOKEN" \
+              "$ASSIGN_URL" -d "{\"assignees\": [\"$assignee\"]}")
+              echo "Unassign Result for $assignee: $UNASSIGN_RESULT"
+            done
+          fi
+
+      - name: Print and Unassign all assignees
+        run: |
           echo "Fetching current assignees..."
           ASSIGNEES_JSON=$(curl -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" \
           "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/assignees")
