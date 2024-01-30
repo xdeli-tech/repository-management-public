@@ -13,9 +13,10 @@ env:
   org: xdeli-tech
   project_id: 3
 
-jobs: 
+jobs:
   move_to_inbox:
     runs-on: ubuntu-latest
+    timeout-minutes: 1
     steps:
       - name: Move issue to ${{ env.inbox }}
         uses: leonsteinhaeuser/project-beta-automations@v2.2.1
@@ -24,4 +25,4 @@ jobs:
           organization: ${{ env.org }}
           project_id: ${{ env.project_id }}
           resource_node_id: ${{ github.event.pull_request.node_id || github.event.issue.node_id }}
-          status_value: ${{ env.inbox }} 
+          status_value: ${{ env.inbox }}
