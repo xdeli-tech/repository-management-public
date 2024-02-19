@@ -2,9 +2,9 @@ name: Move new issues & PR into Inbox
 
 on:
   issues:
-    types: [assigned, unassigned]
+    types: [opened, assigned, unassigned]
   pull_request:
-    types: [assigned, unassigned]
+    types: [opened, assigned, unassigned]
 
 env:
   backlog: 📋 Backlog
