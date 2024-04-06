@@ -1,4 +1,4 @@
-name: Move new issues & PR into Inbox
+name: Move new issues & PR into Unread
 
 on:
   issues:
@@ -8,21 +8,21 @@ on:
 
 env:
   backlog: 📋 Backlog
-  inbox: 📥 Inbox
+  unread: 📥 Unread
   gh_project_token: ${{ secrets.XDELI_BOT_TOKEN }}
   org: xdeli-tech
   project_id: 3
 
 jobs:
-  move_to_inbox:
+  move_to_unread:
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
-      - name: Move issue to ${{ env.inbox }}
+      - name: Move issue to ${{ env.unread }}
         uses: leonsteinhaeuser/project-beta-automations@v2.2.1
         with:
           gh_token: ${{ env.gh_project_token }}
           organization: ${{ env.org }}
           project_id: ${{ env.project_id }}
           resource_node_id: ${{ github.event.pull_request.node_id || github.event.issue.node_id }}
-          status_value: ${{ env.inbox }}
+          status_value: ${{ env.unread }}
