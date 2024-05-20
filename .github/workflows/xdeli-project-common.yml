@@ -1,0 +1,76 @@
+name: XDeli project common
+
+on:
+  issues:
+    types: [opened, assigned, unassigned]
+  pull_request:
+    types: [opened, assigned, unassigned]
+  pull_request_target:
+    types: [ready_for_review, review_requested, converted_to_draft]
+
+env:
+  PJ_GH_BOT_TOKEN: ${{ secrets.XDELI_BOT_TOKEN }}
+  backlog: 📋 Backlog
+  unread: 📥 Unread
+  org: xdeli-tech
+  project_id: 3
+
+jobs:
+  move_to_unread:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Move issue to ${{ env.unread }}
+        uses: leonsteinhaeuser/project-beta-automations@v2.2.1
+        with:
+          gh_token: ${{ env.PJ_GH_BOT_TOKEN }}
+          organization: ${{ env.org }}
+          project_id: ${{ env.project_id }}
+          resource_node_id: ${{ github.event.pull_request.node_id || github.event.issue.node_id }}
+          status_value: ${{ env.unread }}
+
+  pr-opened:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request_target' && github.event.action == 'ready_for_review' }}
+    steps:
+      - run: sudo apt update && sudo apt install -y gh
+      - run: $PJ_GH_BOT_TOKEN | gh auth login --with-token
+      - name: Change Assignee if PR has reviewers
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REVIEWERS=$(gh pr view $PR_NUMBER --json reviewers --jq '.reviewers[].login' | jq -r 'join(",")')
+          echo "Reviewers to be assigned: $REVIEWERS"
+          if [ -n "$REVIEWERS" ]; then
+            gh pr edit $PR_NUMBER --add-assignee $REVIEWERS
+            echo "Assigned reviewers as assignees for PR #$PR_NUMBER"
+          else
+            echo "No reviewers found to assign for PR #$PR_NUMBER"
+          fi
+
+  pr-converted-to-draft:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request_target' && github.event.action == 'converted_to_draft' }}
+    steps:
+      - uses: peter-evans/assign-action@v1
+        with:
+          token: ${{ env.PJ_GH_BOT_TOKEN }}
+          assignees: ${{ github.event.pull_request.user.login }}
+
+  pr-review-requested:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request_target' && github.event.action == 'review_requested' }}
+    steps:
+      - run: sudo apt update && sudo apt install -y gh
+      - run: ${{ env.PJ_GH_BOT_TOKEN }} | gh auth login --with-token
+      - name: Change Assignee if PR is Open
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_STATE=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER --jq .state)
+          if [ "$PR_STATE" = "open" ]; then
+            REVIEWERS=$(gh pr view $PR_NUMBER --json reviewers --jq '.reviewers[].login' | jq -r 'join(",")')
+            echo "Reviewers to be assigned: $REVIEWERS"
+            gh pr edit $PR_NUMBER --add-assignee $REVIEWERS
+            echo "Assigned reviewers as assignees for PR #$PR_NUMBER"
+          else
+            echo "PR #$PR_NUMBER is not open. No changes made."
+          fi
