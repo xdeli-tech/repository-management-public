@@ -15,10 +15,15 @@ env:
   org: xdeli-tech
   project_id: 3
 
+concurrency:
+  group: project-common-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   move_to_unread:
     runs-on: ubuntu-latest
     timeout-minutes: 1
+    if: ${{ github.event.action == 'opened' || github.event.action == 'assigned' || github.event.action == 'unassigned' }}
     steps:
       - name: Move issue to ${{ env.unread }}
         uses: leonsteinhaeuser/project-beta-automations@v2.2.1
@@ -31,14 +36,15 @@ jobs:
 
   pr-opened:
     runs-on: ubuntu-latest
+    timeout-minutes: 1
     if: ${{ github.event_name == 'pull_request_target' && github.event.action == 'ready_for_review' }}
     steps:
+      - uses: actions/checkout@v4
       - run: sudo apt update && sudo apt install -y gh
-      - run: $PJ_GH_BOT_TOKEN | gh auth login --with-token
       - name: Change Assignee if PR has reviewers
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
-          REVIEWERS=$(gh pr view $PR_NUMBER --json reviewers --jq '.reviewers[].login' | jq -r 'join(",")')
+          REVIEWERS=$(gh pr view $PR_NUMBER --json reviewRequests --jq '.reviewRequests[].login' |  tr '\n' ',' | sed 's/,$//')
           echo "Reviewers to be assigned: $REVIEWERS"
           if [ -n "$REVIEWERS" ]; then
             gh pr edit $PR_NUMBER --add-assignee $REVIEWERS
@@ -46,11 +52,15 @@ jobs:
           else
             echo "No reviewers found to assign for PR #$PR_NUMBER"
           fi
+        env:
+          GH_TOKEN: ${{ env.PJ_GH_BOT_TOKEN }}
 
   pr-converted-to-draft:
     runs-on: ubuntu-latest
+    timeout-minutes: 1
     if: ${{ github.event_name == 'pull_request_target' && github.event.action == 'converted_to_draft' }}
     steps:
+      - uses: actions/checkout@v4
       - uses: peter-evans/assign-action@v1
         with:
           token: ${{ env.PJ_GH_BOT_TOKEN }}
@@ -58,19 +68,23 @@ jobs:
 
   pr-review-requested:
     runs-on: ubuntu-latest
+    timeout-minutes: 1
     if: ${{ github.event_name == 'pull_request_target' && github.event.action == 'review_requested' }}
     steps:
+      - uses: actions/checkout@v4
       - run: sudo apt update && sudo apt install -y gh
-      - run: ${{ env.PJ_GH_BOT_TOKEN }} | gh auth login --with-token
       - name: Change Assignee if PR is Open
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           PR_STATE=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER --jq .state)
-          if [ "$PR_STATE" = "open" ]; then
-            REVIEWERS=$(gh pr view $PR_NUMBER --json reviewers --jq '.reviewers[].login' | jq -r 'join(",")')
+          PR_DRAFT=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER --jq .draft)
+          if [ "$PR_STATE" = "open" ] && [ "$PR_DRAFT" = "false" ]; then
+            REVIEWERS=$(gh pr view $PR_NUMBER --json reviewRequests --jq '.reviewRequests[].login' |  tr '\n' ',' | sed 's/,$//')
             echo "Reviewers to be assigned: $REVIEWERS"
             gh pr edit $PR_NUMBER --add-assignee $REVIEWERS
             echo "Assigned reviewers as assignees for PR #$PR_NUMBER"
           else
             echo "PR #$PR_NUMBER is not open. No changes made."
           fi
+        env:
+          GH_TOKEN: ${{ env.PJ_GH_BOT_TOKEN }}
