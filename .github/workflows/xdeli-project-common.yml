@@ -6,7 +6,7 @@ on:
   pull_request:
     types: [opened, assigned, unassigned]
   pull_request_target:
-    types: [ready_for_review, review_requested, converted_to_draft]
+    types: [opened, edited, reopened, ready_for_review, review_requested, converted_to_draft, synchronize]
 
 env:
   PJ_GH_BOT_TOKEN: ${{ secrets.XDELI_BOT_TOKEN }}
@@ -88,3 +88,20 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ env.PJ_GH_BOT_TOKEN }}
+
+
+  check_pull_requests_to_link_issues:
+    runs-on: ubuntu-latest
+    name: Check linked issues in pull requests
+    if: >-
+      (github.event_name == 'pull_request_target')
+      && (
+        (github.repository == 'xdeli-tech/rpa_ai')
+      )
+    steps:
+      - uses: nearform-actions/github-action-check-linked-issues@v1
+        id: check-linked-issues
+        with:
+          exclude-branches: 'release/**, dependabot/**, project-common/**'
+          github-token: ${{ env.PJ_GH_BOT_TOKEN }}
+          loose-matching: true
