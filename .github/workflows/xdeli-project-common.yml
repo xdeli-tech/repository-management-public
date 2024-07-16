@@ -7,6 +7,8 @@ on:
     types: [opened, assigned, unassigned]
   pull_request_target:
     types: [opened, edited, reopened, ready_for_review, review_requested, converted_to_draft, synchronize]
+  push:
+
 
 env:
   PJ_GH_BOT_TOKEN: ${{ secrets.XDELI_BOT_TOKEN }}
@@ -14,6 +16,15 @@ env:
   unread: 📥 Unread
   org: xdeli-tech
   project_id: 3
+  ORG_NAME: xdeli-tech
+  STRICT_REPO_LIST: |
+    xdeli-tech/iemeci-aws-infrastructure
+    xdeli-tech/delivery-provider-skeleton
+    xdeli-tech/delivery-provider
+    xdeli-tech/delivery-provider-ubereats
+    xdeli-tech/delivery-provider-demaecan
+    xdeli-tech/rpa_ai
+    xdeli-tech/xdeli-web-app
 
 concurrency:
   group: project-common-${{ github.ref }}
@@ -23,7 +34,14 @@ jobs:
   move_to_unread:
     runs-on: ubuntu-latest
     timeout-minutes: 1
-    if: ${{ github.event.action == 'opened' || github.event.action == 'assigned' || github.event.action == 'unassigned' }}
+    if: >-
+      (github.event_name == 'issues' || github.event_name == 'pull_request')
+      && (
+        github.event.action == 'opened' 
+        || github.event.action == 'reopened'
+        || github.event.action == 'assigned'
+        || github.event.action == 'unassigned'
+      )
     steps:
       - name: Move issue to ${{ env.unread }}
         uses: leonsteinhaeuser/project-beta-automations@v2.2.1
@@ -89,19 +107,3 @@ jobs:
         env:
           GH_TOKEN: ${{ env.PJ_GH_BOT_TOKEN }}
 
-
-  check_pull_requests_to_link_issues:
-    runs-on: ubuntu-latest
-    name: Check linked issues in pull requests
-    if: >-
-      (github.event_name == 'pull_request_target')
-      && (
-        (github.repository == 'xdeli-tech/rpa_ai')
-      )
-    steps:
-      - uses: nearform-actions/github-action-check-linked-issues@v1
-        id: check-linked-issues
-        with:
-          exclude-branches: 'release/**, dependabot/**, project-common/**'
-          github-token: ${{ env.PJ_GH_BOT_TOKEN }}
-          loose-matching: true
