@@ -26,10 +26,6 @@ env:
     xdeli-tech/rpa_ai
     xdeli-tech/xdeli-web-app
 
-concurrency:
-  group: project-common-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   move_to_unread:
     runs-on: ubuntu-latest
