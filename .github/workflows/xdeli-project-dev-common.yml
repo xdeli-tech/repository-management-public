@@ -1,0 +1,158 @@
+name: XDeli dev project common
+
+on:
+  issues:
+    types: [opened, assigned, unassigned]
+  pull_request:
+    types: [opened, edited, reopened, synchronize, assigned, unassigned]
+  pull_request_target:
+    types: [opened, edited, reopened, ready_for_review, review_requested, converted_to_draft, synchronize]
+  push:
+
+env:
+  PJ_GH_BOT_TOKEN: ${{ secrets.XDELI_BOT_TOKEN }}
+  backlog: 📋 Backlog
+  unread: 📥 Unread
+  org: xdeli-tech
+  project_id: 3
+  ORG_NAME: xdeli-tech
+  STRICT_REPO_LIST: |
+    xdeli-tech/iemeci-aws-infrastructure
+    xdeli-tech/delivery-provider-skeleton
+    xdeli-tech/delivery-provider
+    xdeli-tech/delivery-provider-ubereats
+    xdeli-tech/delivery-provider-demaecan
+    xdeli-tech/rpa_ai
+    xdeli-tech/xdeli-web-app
+
+jobs:
+  check_pull_requests_to_link_issues:
+    runs-on: ubuntu-latest
+    name: Check linked issues in pull requests
+    if: >-
+      (github.event_name == 'pull_request_target')
+      && (github.event.action == 'opened' || github.event.action == 'edited' || github.event.action == 'reopened')
+    steps:
+      - uses: nearform-actions/github-action-check-linked-issues@v1
+        id: check-linked-issues
+        with:
+          exclude-branches: 'release/**, dependabot/**, project-common/**'
+          github-token: ${{ env.PJ_GH_BOT_TOKEN }}
+          loose-matching: true
+
+  commit-lint:
+    timeout-minutes: 2
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      pull-requests: write
+      contents: read
+    if: >-
+      (github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+      - run: |
+          rm -rf package.json
+          npm install --save-dev @commitlint/{config-conventional,cli}
+          curl -s https://xdeli-tech.github.io/xdeli-issues/commitlint.config.js > commitlint.config.js
+          git reset --hard
+          npx commitlint --from=origin/main --to=HEAD --config ./commitlint.config.js
+          rm commitlint.config.js
+        id: conventional-commit
+      - if: failure() && steps.conventional-commit.outcome == 'failure'
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Hi @${{ github.actor }},
+            Commit lint was failed.
+            Please follow conventional-commit: https://www.conventionalcommits.org :pray:
+            - How do I modify a specific commit?: https://stackoverflow.com/questions/1186535/how-do-i-modify-a-specific-commit
+
+            Please ask to AI or google it for your IDE.
+            Please let @HiromiShikata know if it's difficult to fix :bow:
+          token: ${{ secrets.XDELI_BOT_TOKEN }}
+      - name: Check for DONTMERGE
+        run: |
+          result=$(find . \
+            -type f \
+            ! -path './.github/workflows/xdeli-project-dev-common.yml' \
+            ! -name '*.snap' \
+            -exec grep -Hn 'DONTMERGE' {} \;)
+          if [[ ! -z "$result" ]]; then
+            echo "$result"
+            exit 1
+          fi
+      - uses: nearform-actions/github-action-check-linked-issues@v1
+        id: check-linked-issues
+        if: false
+        with:
+          exclude-branches: 'release/**, dependabot/**, project-common/**'
+      - if: failure()
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/${{ github.repository }}/issues/${{ steps.create_pr.outputs.pr_number }}/assignees
+          assignees: ${{ github.actor }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  create_and_enable_automerge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    if: >-
+      (github.event_name == 'push')
+      && (github.ref != 'refs/heads/main')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set branch name as output
+        id: branch_name
+        run: echo "::set-output name=branch::${GITHUB_REF#refs/heads/}"
+
+      - name: Create Pull Request
+        id: create_pr
+        uses: repo-sync/pull-request@v2
+        with:
+          github_token: ${{ secrets.XDELI_BOT_TOKEN }}
+          destination_branch: 'main'
+          source_branch: ''
+          pr_title: '${{ steps.branch_name.outputs.branch }}'
+          pr_body: ':magic_wand: :sparkles:'
+          pr_draft: false
+
+      - name: Assign PR to author
+        if: steps.create_pr.outputs.pr_number
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/${{ github.repository }}/issues/${{ steps.create_pr.outputs.pr_number }}/assignees
+          assignees: ${{ github.actor }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get PR Node ID
+        if: steps.create_pr.outputs.pr_number
+        id: get_pr_id
+        run: |
+          PR_DATA=$(curl -s -H "Authorization: token ${{ secrets.XDELI_BOT_TOKEN }}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/pulls/${{ steps.create_pr.outputs.pr_number }}")
+          PR_ID=$(echo "$PR_DATA" | jq -r '.node_id')
+          echo "::set-output name=node_id::$PR_ID"
+
+      - name: Enable Auto Merge for PR
+        if: steps.create_pr.outputs.pr_number
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: bearer ${{ secrets.XDELI_BOT_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "query": "mutation($id: ID!) { enablePullRequestAutoMerge(input: { pullRequestId: $id }) { clientMutationId } }",
+              "variables": {
+                "id": "'"${{ steps.get_pr_id.outputs.node_id }}"'"
+              }
+            }' \
+            "https://api.github.com/graphql")
+          echo "$RESPONSE"
+          if echo "$RESPONSE" | jq -e '.errors' >/dev/null; then
+            echo "Failed to enable auto merge"
+            exit 1
+          fi
