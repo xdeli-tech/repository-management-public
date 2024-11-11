@@ -36,7 +36,7 @@ jobs:
       - uses: nearform-actions/github-action-check-linked-issues@v1
         id: check-linked-issues
         with:
-          exclude-branches: 'release/**, dependabot/**, project-common/**'
+          exclude-branches: 'release/**, dependabot/**, project-common/**, renovate/**'
           github-token: ${{ env.PJ_GH_BOT_TOKEN }}
           loose-matching: true
 
@@ -57,10 +57,10 @@ jobs:
       - run: |
           rm -rf package.json
           npm install --save-dev @commitlint/{config-conventional,cli}
-          curl -s https://xdeli-tech.github.io/xdeli-issues/commitlint.config.js > commitlint.config.js
+          curl -s https://xdeli-tech.github.io/xdeli-issues/commitlint.config.js > commitlint.config.cjs
           git reset --hard
-          npx commitlint --from=origin/main --to=HEAD --config ./commitlint.config.js
-          rm commitlint.config.js
+          npx commitlint --from=origin/main --to=HEAD --config ./commitlint.config.cjs
+          rm commitlint.config.cjs
         id: conventional-commit
       - if: failure() && steps.conventional-commit.outcome == 'failure'
         uses: peter-evans/create-or-update-comment@v1
