@@ -36,7 +36,7 @@ jobs:
       - uses: nearform-actions/github-action-check-linked-issues@v1
         id: check-linked-issues
         with:
-          exclude-branches: 'release/**, dependabot/**, project-common/**'
+          exclude-branches: 'release/**, dependabot/**, project-common/**, renovate/**'
           github-token: ${{ env.PJ_GH_BOT_TOKEN }}
           loose-matching: true
 
@@ -57,10 +57,10 @@ jobs:
       - run: |
           rm -rf package.json
           npm install --save-dev @commitlint/{config-conventional,cli}
-          curl -s https://xdeli-tech.github.io/xdeli-issues/commitlint.config.js > commitlint.config.js
+          curl -s https://xdeli-tech.github.io/xdeli-issues/commitlint.config.js > commitlint.config.cjs
           git reset --hard
-          npx commitlint --from=origin/main --to=HEAD --config ./commitlint.config.js
-          rm commitlint.config.js
+          npx commitlint --from=origin/main --to=HEAD --config ./commitlint.config.cjs
+          rm commitlint.config.cjs
         id: conventional-commit
       - if: failure() && steps.conventional-commit.outcome == 'failure'
         uses: peter-evans/create-or-update-comment@v1
@@ -119,9 +119,23 @@ jobs:
           destination_branch: 'main'
           source_branch: ''
           pr_title: '${{ steps.branch_name.outputs.branch }}'
-          pr_body: ':magic_wand: :sparkles:'
-          pr_draft: false
+          pr_body: |
+            :magic_wand: :sparkles:
 
+            ## Responsibility of author
+            - [ ] I confirmed added/updated 1 or more testing code at least
+                - any kind of testing ok! :+1: but adding 1 testing is MUST
+                - if PR includes changes only *.md, /infrastructure, /.github, just mark this checkbox as done without testing code
+            - approve yourself after mark as done all above.
+            - [ ] change assignee to reviewer
+                - not only reviewer, please change assignee also to show this PR on our task list for each reviewer
+
+            ## Responsibility of reviewer
+            - [ ] I confirmed 1 or more testing is suppried
+                - if PR includes changes only *.md, /infrastructure, /.github, just mark this checkbox as done without testing code
+            - [ ] I confirmed code is readable
+            - approve after mark as done all above.
+          pr_draft: false
       - name: Assign PR to author
         if: steps.create_pr.outputs.pr_number
         uses: octokit/request-action@v2.x
